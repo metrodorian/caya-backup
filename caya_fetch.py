@@ -58,7 +58,7 @@ def main() -> int:
     manifest = json.loads(MANIFEST.read_text()) if MANIFEST.exists() else {}
     caya = Caya()
     pool = ThreadPoolExecutor(max_workers=4)
-    stats = {"neu": 0, "vorhanden": 0, "fehler": 0, "ohne_datei": 0}
+    stats = {"neu": 0, "vorhanden": 0, "verschoben": 0, "fehler": 0, "ohne_datei": 0}
 
     def fetch(doc: dict, rel: Path, folder_path: str):
         dest = OUT / rel / target_name(doc)
@@ -96,6 +96,10 @@ def main() -> int:
                         known = manifest.get(doc["id"])
                         if known and (OUT / known["path"]).exists():
                             stats["vorhanden"] += 1
+                            if known["folder"] != folder_path:  # in Caya verschoben
+                                log.info("  ~ verschoben: %s -> %s", known["folder"], folder_path)
+                                known["folder"] = folder_path
+                                stats["verschoben"] += 1
                             continue
                         if not doc.get("file") or doc.get("isDestroyed"):
                             stats["ohne_datei"] += 1
@@ -113,7 +117,8 @@ def main() -> int:
         pool.shutdown()
         MANIFEST.write_text(json.dumps(manifest, indent=1, ensure_ascii=False))
 
-    log.info("Fertig: %(neu)d neu, %(vorhanden)d schon da, %(ohne_datei)d ohne Datei, "
+    log.info("Fertig: %(neu)d neu, %(vorhanden)d schon da (%(verschoben)d verschoben), "
+             "%(ohne_datei)d ohne Datei, "
              "%(fehler)d Fehler", stats)
     return 1 if stats["fehler"] else 0
 

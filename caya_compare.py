@@ -107,9 +107,8 @@ def best_name_match(caya_folder: str, folders: list[str]) -> tuple[str, float]:
     return best, score
 
 
-def main() -> int:
-    local = Path(sys.argv[1]) if len(sys.argv) > 1 else DEFAULT_LOCAL
-    manifest = json.loads(MANIFEST.read_text())
+def find_local(manifest: dict, local: Path, quiet: bool = False) -> dict:
+    """Caya-ID -> (lokale Fundorte relativ zu local, Trefferart) für alle Dokumente."""
     sizes = {v["size"] for v in manifest.values()}
 
     # 1) lokale Dateien: Datei-Hash bei passender Größe, PDFs für den Inhalts-Hash sammeln
@@ -131,8 +130,9 @@ def main() -> int:
                     hashed += 1
             except OSError:
                 continue
-    print(f"{scanned} lokale Dateien durchsucht, {hashed} mit passender Größe gehasht, "
-          f"{len(pdfs)} PDFs", flush=True)
+    if not quiet:
+        print(f"{scanned} lokale Dateien durchsucht, {hashed} mit passender Größe gehasht, "
+              f"{len(pdfs)} PDFs", flush=True)
 
     caya_paths = {doc_id: OUT / d["path"] for doc_id, d in manifest.items()}
     hashes = content_hashes(pdfs + list(caya_paths.values()))
@@ -141,14 +141,26 @@ def main() -> int:
         if hashes[str(p)]:
             by_content[hashes[str(p)]].append(str(p.relative_to(local)))
 
-    # 2) Caya-Dokumente zuordnen
-    rows, per_folder = [], defaultdict(Counter)
-    found = Counter()
-    for doc_id, d in sorted(manifest.items(), key=lambda kv: (kv[1]["folder"], kv[1]["path"])):
+    result = {}
+    for doc_id, d in manifest.items():
         hits, how = by_hash.get(d["sha256"], []), "Datei-Hash"
         if not hits:
             ch = hashes.get(str(caya_paths[doc_id]))
             hits, how = (by_content.get(ch, []) if ch else []), "Inhalts-Hash"
+        result[doc_id] = (hits, how if hits else "")
+    return result
+
+
+def main() -> int:
+    local = Path(sys.argv[1]) if len(sys.argv) > 1 else DEFAULT_LOCAL
+    manifest = json.loads(MANIFEST.read_text())
+    matches = find_local(manifest, local)
+
+    # Caya-Dokumente zuordnen
+    rows, per_folder = [], defaultdict(Counter)
+    found = Counter()
+    for doc_id, d in sorted(manifest.items(), key=lambda kv: (kv[1]["folder"], kv[1]["path"])):
+        hits, how = matches[doc_id]
         if hits:
             found[how] += 1
         for h in hits:
