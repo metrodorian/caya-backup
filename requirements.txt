@@ -1,2 +1,7 @@
+playwright>=1.40
+python-dotenv>=1.0
+pypdf>=4.0
+requests>=2.31
+# nur für sync.py (Google-Drive-Variante)
 google-api-python-client>=2.100
 google-auth>=2.23

@@ -1,8 +1,27 @@
+# ÖFFENTLICHES REPO – hier darf nie etwas Privates landen.
+
+# Zugangsdaten und Sitzungen
+.env
+.env.*
+!.env.example
+.auth/
 config.json
 service-account*.json
+*.pem
+*.key
+tokens*.json
 state.json
+
+# Heruntergeladene Dokumente, Abgleich-Ergebnisse, Logs
+downloads/
+*.pdf
+*.csv
+*.log
+*.png
+*.jpg
+*.zip
+
+# Umgebung
 .venv/
 __pycache__/
-.env
-.auth/
-downloads/
+.DS_Store
