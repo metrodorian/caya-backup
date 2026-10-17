@@ -3,3 +3,6 @@ service-account*.json
 state.json
 .venv/
 __pycache__/
+.env
+.auth/
+downloads/
