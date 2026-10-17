@@ -1,0 +1,5 @@
+{
+  "folder_id": "ID-AUS-DER-DRIVE-ORDNER-URL",
+  "target_dir": "/srv/nas/caya-backup",
+  "key_file": "/opt/caya-drive-sync/service-account.json"
+}
