@@ -17,6 +17,17 @@ FOLGE_DATEI="downloads/fehler_in_folge.txt"
 {
   echo "Lauf: $(date '+%Y-%m-%d %H:%M:%S')"
 
+  # Erst auf Netz warten. launchd holt einen verschlafenen Termin beim
+  # Aufwachen sofort nach - dann steht das WLAN oft noch nicht, und der Lauf
+  # scheiterte schon an der Namensaufloesung (18. und 25.10.2026, beide
+  # unbemerkt). Bis zu zehn Minuten Geduld.
+  for _ in $(seq 1 40); do
+    curl -s -m 5 -o /dev/null https://cognito-idp.eu-central-1.amazonaws.com/ && break
+    sleep 15
+  done || true
+  curl -s -m 5 -o /dev/null https://cognito-idp.eu-central-1.amazonaws.com/ \
+    || echo "Kein Netz nach 10 Minuten - versuche es trotzdem"
+
   echo "── Abruf ──"
   "$PY" -u caya_fetch.py
   RC=$?
@@ -73,9 +84,17 @@ echo "$ERG_SAUBER"
 HEIMMONITOR="$(grep -E '^HEIMMONITOR_URL=' .env 2>/dev/null | cut -d= -f2-)"
 if [ -n "$HEIMMONITOR" ]; then
   if [ "$RC" -eq 0 ]; then OK=true; else OK=false; fi
-  curl -s -m 10 -X POST -H "Content-Type: application/json" \
-    -d "{\"quelle\":\"caya\",\"name\":\"Caya-Post\",\"ok\":${OK},\"exit\":${RC},\"fehler_in_folge\":${FOLGE:-0},\"takt_stunden\":168,\"ergebnis\":\"${ERG_SAUBER}\"}" \
-    "$HEIMMONITOR" || echo "Heimmonitor nicht erreichbar (nicht kritisch)"
+  # Mehrere Versuche: faellt der Lauf wegen fehlenden Netzes aus, fehlt das
+  # Netz oft auch fuer die Meldung - und ein Ausfall, den keiner meldet,
+  # bleibt unbemerkt.
+  GEMELDET=nein
+  for _ in 1 2 3 4 5; do
+    if curl -sf -m 10 -X POST -H "Content-Type: application/json" \
+      -d "{\"quelle\":\"caya\",\"name\":\"Caya-Post\",\"ok\":${OK},\"exit\":${RC},\"fehler_in_folge\":${FOLGE:-0},\"takt_stunden\":168,\"ergebnis\":\"${ERG_SAUBER}\"}" \
+      "$HEIMMONITOR"; then GEMELDET=ja; break; fi
+    sleep 30
+  done
+  [ "$GEMELDET" = ja ] || echo "Heimmonitor nicht erreichbar (nicht kritisch)"
   echo
 fi
 
